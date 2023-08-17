@@ -19,7 +19,7 @@ import (
 	}
 
 	return resp, nil
-}
+} */
 
 func (c *Controller) GetByIdOrder(req *models.OrderPrimaryKey) (*models.Order, error) {
 
@@ -30,7 +30,7 @@ func (c *Controller) GetByIdOrder(req *models.OrderPrimaryKey) (*models.Order, e
 	}
 
 	return resp, nil
-} */
+}
 
 func (c *Controller) OrderGetList(req *models.OrderGetListRequest) {
 
@@ -49,7 +49,7 @@ func (c *Controller) OrderGetList(req *models.OrderGetListRequest) {
 
 }
 
-/* func (c *Controller) OrderUpdate(req *models.UpdateOrder) (*models.Order, error) {
+func (c *Controller) OrderUpdate(req *models.UpdateOrder) (*models.Order, error) {
 
 	resp, err := c.Strg.Order().Update(req)
 	if err != nil {
@@ -71,7 +71,7 @@ func (c *Controller) OrderDelete(req *models.OrderPrimaryKey) error {
 	return nil
 }
 
-func (c *Controller) AddOrderItem(req *models.CreateOrderItem) error {
+/* func (c *Controller) AddOrderItem(req *models.CreateOrderItem) error {
 
 	product, err := c.Strg.Product().GetById(&models.ProductPrimaryKey{Id: req.ProductId})
 	if err != nil {

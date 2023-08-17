@@ -45,11 +45,11 @@ type ProductRepoI interface {
 }
 
 type OrderRepoI interface {
-	//Create(*models.CreateOrder) (*models.Order, error)
-	//GetById(*models.OrderPrimaryKey) (*models.Order, error)
+	Create(*models.CreateOrder) (*models.Order, error)
+	GetById(*models.OrderPrimaryKey) (*models.Order, error)
 	GetList(*models.OrderGetListRequest) (*models.OrderGetList, error)
-	//Update(*models.UpdateOrder) (*models.Order, error)
-	//Delete(*models.OrderPrimaryKey) error
+	Update(*models.UpdateOrder) (*models.Order, error)
+	Delete(*models.OrderPrimaryKey) error
 	//AddOrderItem(*models.CreateOrderItem) error
 	//RemoveOrderItem(*models.RemoveOrderItemPrimaryKey) error
 }

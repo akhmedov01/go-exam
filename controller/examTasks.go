@@ -2,10 +2,21 @@ package controller
 
 import (
 	"app/models"
+	"app/pkg/convert"
+	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"time"
 )
+
+// 10-gacha bo'lgan tasklarni shop_cart.json ni order.json ga o'zgartirib ishlaganman
+// Yani  "product_id": "7df81816-0b37-4922-bd87-d5dbe0f47c56",
+//		 "user_id": "ebea6d88-820e-4863-8f69-e91f891b92b0",
+//		 "count": 5,
+//		 "status": false,
+//		 "time": "2022-05-27 01:17:38"
+// fieldlar order.json fieldlari
 
 // 1. Order boyicha default holati time sort bolishi kerak. DESC
 
@@ -117,7 +128,7 @@ func (c *Controller) UserHistory(id string) {
 	resultMap := make(map[string]map[string]int)
 	productMap := make(map[string]*models.Product)
 	testMap := make(map[string]int)
-	//orderMap := make(map[string]*models.Order)
+	orderMap := make(map[string]*models.Order)
 
 	for _, v := range respProduct.Products {
 		productMap[v.Id] = v
@@ -128,28 +139,28 @@ func (c *Controller) UserHistory(id string) {
 		if v.Status {
 
 			testMap[v.ProductId] = v.Count
-			resultMap[v.UserId] = testMap
+			resultMap[v.Id] = testMap
 
 		}
 
 	}
 
-	/* for _, v := range resp.Orders {
+	for _, v := range resp.Orders {
 
-		orderMap[v.UserId] = v
+		orderMap[v.Id] = v
 
-	} */
+	}
 
-	for userId, value := range resultMap {
+	for id, value := range resultMap {
 
-		if userId == userResp.Id {
+		if orderMap[id].UserId == userResp.Id {
 
 			fmt.Printf("User Name: %s\n", userResp.Name)
 
 			for i, v := range value {
 
-				fmt.Printf("Product Name: %s\tPrice: %d\tCount: %d\tTotal: %d\n",
-					productMap[i].Name, productMap[i].Price, v, productMap[i].Price*v)
+				fmt.Printf("Product Name: %s\tPrice: %d\tCount: %d\tTotal: %d\t Time: %s\n",
+					productMap[i].Name, productMap[i].Price, v, productMap[i].Price*v, orderMap[id].DateTime)
 
 			}
 		}
@@ -372,7 +383,15 @@ func (c *Controller) DateTopSales() {
 
 	dateMap := make(map[string]int)
 	productMap := make(map[string]*models.Product)
-	resultMap := make(map[string]map[string]int)
+	resultMap := make(map[string]int)
+
+	for _, v := range respProduct.Products {
+
+		productMap[v.Id] = v
+
+	}
+
+	// dateMap ning key iga sanalar soatlardan ajratilib, value siga esa shu sanada sotilgan maxsulotlar saqlanadi
 
 	for _, v := range respOrder.Orders {
 
@@ -400,18 +419,51 @@ func (c *Controller) DateTopSales() {
 		return counts[i].Value > counts[j].Value
 	})
 
+	// Eng ko'p savdo bo'lgan kun counts ga sana va shu sanada nechta maxsulot sotilganni key, value tarzida joylandi
+
 	counts = counts[:1]
 
-	for _, v := range respProduct.Products {
+	for _, v := range counts {
+		for _, p := range respOrder.Orders {
 
-		productMap[v.Id] = v
+			parsingDate := p.DateTime[:10]
 
+			if v.Key == parsingDate {
+
+				resultMap[p.DateTime] = p.Count
+
+			}
+		}
 	}
 
-	for _, v := range respOrder.Orders {
+	// Shu sananing soatlarida sotilgan maxsulotlar count bo'yicha DESC sort lanadi
 
-		resultMap[v.DateTime][v.ProductId] += v.Count
+	type ProductCount struct {
+		Key   string
+		Value int
+	}
 
+	var productCounts = []ProductCount{}
+
+	for i, v := range resultMap {
+		productCounts = append(productCounts, ProductCount{i, v})
+	}
+
+	sort.Slice(productCounts, func(i, j int) bool {
+		return productCounts[i].Value > productCounts[j].Value
+	})
+
+	for _, v := range productCounts {
+		for _, orderV := range respOrder.Orders {
+
+			if v.Key == orderV.DateTime {
+
+				fmt.Printf("Product Name: %s   \t Date: %s \t Count: %d\n",
+					productMap[orderV.ProductId].Name, orderV.DateTime, v.Value)
+
+			}
+
+		}
 	}
 
 }
@@ -546,4 +598,109 @@ func (c *Controller) ActiveUser() {
 		fmt.Printf("User Name: %s \tCount: %d\n", userMap[v.Key].Name, v.Value)
 	}
 
+}
+
+// 11. Agar User 9 dan kop mahuslot sotib olgan bolsa, 1 tasi tekinga beriladi va 9 ta uchun pul hisoblanadi. 1 tasi eng arzon mahsulotni pulini hisoblamaysiz.
+
+// Faqat shu taskda eski order bo'yicha logika yozilgan.
+// Qolgan tasklarda siz tashlagan data.zip dagi shop_cart.json ni order.json ga rename qilib json-DB.zip ning data sidagi
+// order.json ni o'rniga qo'yganman. O'rniga ko'ygan datamdagi field lar bilan bu masalani yechib bo'lmas ekan.
+// Shuning uchun eski order.json dagi fieldlarni ishlatdim.
+
+func (c *Controller) OrderPayment(id string) error {
+
+	order, err := c.Strg.Order().GetById(&models.OrderPrimaryKey{Id: id})
+	if err != nil {
+		log.Printf("error while Order => GetById: %+v\n", err)
+		return err
+	}
+
+	user, err := c.Strg.User().GetById(&models.UserPrimaryKey{Id: order.UserId})
+	if err != nil {
+		log.Printf("error while User => GetById: %+v\n", err)
+		return err
+	}
+
+	if len(order.OrderItems) > 9 {
+
+		respProduct, err := c.Strg.Product().GetList(&models.ProductGetListRequest{})
+
+		if err != nil {
+			fmt.Println("Error while getting ProductList")
+			return err
+		}
+
+		productMap := make(map[string]*models.Product)
+		counterMap := make(map[string]int)
+
+		for _, v := range respProduct.Products {
+
+			productMap[v.Id] = v
+
+		}
+
+		for _, v := range order.OrderItems {
+
+			counterMap[v.ProductId] = productMap[v.ProductId].Price
+
+		}
+
+		type Count struct {
+			Key   string
+			Value int
+		}
+
+		var counts = []Count{}
+
+		for i, v := range counterMap {
+			counts = append(counts, Count{i, v})
+		}
+
+		sort.Slice(counts, func(i, j int) bool {
+			return counts[i].Value < counts[j].Value
+		})
+
+		counts = counts[:1]
+
+		for _, v := range counts {
+			order.Sum -= v.Value
+		}
+
+	}
+
+	if order.Sum > user.Balance {
+		return errors.New("Not enough balance " + user.Name + " " + user.Surname)
+	}
+
+	order.Status = true
+	fmt.Println("suc")
+	user.Balance -= order.Sum
+
+	var updateOrder models.UpdateOrder
+	err = convert.ConvertStructToStruct(order, &updateOrder)
+	if err != nil {
+		log.Printf("error while convertStructToStruct: %+v\n", err)
+		return err
+	}
+
+	_, err = c.Strg.Order().Update(&updateOrder)
+	if err != nil {
+		log.Printf("error while order => Update: %+v\n", err)
+		return err
+	}
+
+	var updateUser models.UpdateUser
+	err = convert.ConvertStructToStruct(user, &updateUser)
+	if err != nil {
+		log.Printf("error while convertStructToStruct: %+v\n", err)
+		return err
+	}
+
+	_, err = c.Strg.User().Update(&updateUser)
+	if err != nil {
+		log.Printf("error while User => Update: %+v\n", err)
+		return err
+	}
+
+	return nil
 }

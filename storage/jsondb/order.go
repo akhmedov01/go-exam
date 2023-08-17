@@ -2,10 +2,16 @@ package jsondb
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"os"
+	"time"
 
 	"app/models"
+	"app/pkg/convert"
+	"app/pkg/file"
+
+	"github.com/google/uuid"
 )
 
 type OrderRepo struct {
@@ -20,7 +26,7 @@ func NewOrderRepo(fileName string, file *os.File) *OrderRepo {
 	}
 }
 
-/* func (o *OrderRepo) Create(ord *models.CreateOrder) (*models.Order, error) {
+func (o *OrderRepo) Create(ord *models.CreateOrder) (*models.Order, error) {
 	orders, err := file.Read(o.fileName)
 	if err != nil {
 		return nil, err
@@ -30,8 +36,6 @@ func NewOrderRepo(fileName string, file *os.File) *OrderRepo {
 		order = models.Order{
 			Id:       id,
 			UserId:   ord.UserId,
-			Sum:      ord.Sum,
-			SumCount: ord.SumCount,
 			DateTime: time.Now().Format("2006-01-02 15:04:05"),
 			Status:   ord.Status,
 		}
@@ -42,9 +46,9 @@ func NewOrderRepo(fileName string, file *os.File) *OrderRepo {
 		return nil, err
 	}
 	return &order, nil
-} */
+}
 
-/* func (o *OrderRepo) GetById(ord *models.OrderPrimaryKey) (*models.Order, error) {
+func (o *OrderRepo) GetById(ord *models.OrderPrimaryKey) (*models.Order, error) {
 
 	var resp models.Order
 	orders, err := file.Read(o.fileName)
@@ -62,7 +66,7 @@ func NewOrderRepo(fileName string, file *os.File) *OrderRepo {
 	}
 
 	return &resp, nil
-} */
+}
 
 func (o *OrderRepo) GetList(ord *models.OrderGetListRequest) (*models.OrderGetList, error) {
 	var resp = &models.OrderGetList{}
@@ -104,7 +108,7 @@ func (u *OrderRepo) read() ([]*models.Order, error) {
 	return orders, nil
 }
 
-/* func (o *OrderRepo) Update(ord *models.UpdateOrder) (*models.Order, error) {
+func (o *OrderRepo) Update(ord *models.UpdateOrder) (*models.Order, error) {
 
 	var resp models.Order
 	orders, err := file.Read(o.fileName)
@@ -117,13 +121,11 @@ func (u *OrderRepo) read() ([]*models.Order, error) {
 	}
 
 	orders[ord.Id] = models.Order{
-		Id:         ord.Id,
-		UserId:     ord.UserId,
-		Sum:        ord.Sum,
-		SumCount:   ord.SumCount,
-		DateTime:   ord.DateTime,
-		Status:     ord.Status,
-		OrderItems: ord.OrderItems,
+		Id:       ord.Id,
+		UserId:   ord.UserId,
+		Count:    ord.Count,
+		DateTime: ord.DateTime,
+		Status:   ord.Status,
 	}
 
 	err = file.Write(o.fileName, orders)
@@ -153,7 +155,7 @@ func (o *OrderRepo) Delete(ord *models.OrderPrimaryKey) error {
 	return nil
 }
 
-func (o *OrderRepo) AddOrderItem(req *models.CreateOrderItem) error {
+/* func (o *OrderRepo) AddOrderItem(req *models.CreateOrderItem) error {
 
 	orders, err := file.Read(o.fileName)
 	if err != nil {

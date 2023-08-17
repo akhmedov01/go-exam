@@ -31,6 +31,8 @@ func main() {
 
 	//con.ActiveUser()
 
-	con.CreateBranch("Akhmedov")
+	//con.CreateBranch("Akhmedov")
+
+	con.DateTopSales()
 
 }
